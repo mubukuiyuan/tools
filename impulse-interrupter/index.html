@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>冲动拦截器 — 先停10分钟</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <!-- 头部标语区 -->
+    <header class="hero">
+      <div class="logo">
+        <span class="logo-icon">⏸</span>
+        <span class="logo-text">冲动拦截器</span>
+      </div>
+      <h1 class="tagline">先别急着放纵，撑过这 10 分钟。</h1>
+      <p class="subtitle">每次冲动都是一次选择。这一次，选冷静。</p>
+    </header>
+
+    <!-- 输入区 -->
+    <main class="main-card">
+      <div class="input-section">
+        <label for="impulse-input" class="input-label">你现在想做什么？</label>
+        <textarea
+          id="impulse-input"
+          class="impulse-input"
+          placeholder="例如：我又想打游戏了、我想刷短视频、我不想学习了……"
+          maxlength="200"
+          rows="2"
+          autofocus
+        ></textarea>
+        <div class="char-count"><span id="char-count">0</span>/200</div>
+      </div>
+
+      <!-- 强度选择 -->
+      <div class="intensity-section">
+        <span class="intensity-label">劝阻强度</span>
+        <div class="intensity-options" role="radiogroup" aria-label="劝阻强度">
+          <button class="intensity-btn" data-intensity="gentle" aria-pressed="false">
+            <span class="intensity-icon">🍃</span>
+            <span class="intensity-name">温和模式</span>
+            <span class="intensity-desc">温柔提醒，适合敏感时刻</span>
+          </button>
+          <button class="intensity-btn active" data-intensity="firm" aria-pressed="true">
+            <span class="intensity-icon">✋</span>
+            <span class="intensity-name">坚定模式</span>
+            <span class="intensity-desc">理性分析，直面冲动</span>
+          </button>
+          <button class="intensity-btn" data-intensity="strong" aria-pressed="false">
+            <span class="intensity-icon">⚡</span>
+            <span class="intensity-name">强力模式</span>
+            <span class="intensity-desc">毫不留情，当头棒喝</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 按钮 -->
+      <button id="intercept-btn" class="intercept-btn">
+        <span class="btn-text">拦截冲动</span>
+        <span class="btn-arrow">→</span>
+      </button>
+
+      <!-- 结果卡片 -->
+      <div id="result-card" class="result-card hidden">
+        <div class="result-header">
+          <span class="result-badge" id="result-badge"></span>
+          <span class="result-timestamp" id="result-timestamp"></span>
+        </div>
+
+        <div class="result-block" id="stop-signal">
+          <h3 class="block-title">🛑 停下来</h3>
+          <p class="block-content"></p>
+        </div>
+
+        <div class="result-block" id="reason-analysis">
+          <h3 class="block-title">🧠 冲动从哪来</h3>
+          <p class="block-content"></p>
+        </div>
+
+        <div class="result-block" id="consequence">
+          <h3 class="block-title">⚠️ 如果现在放纵</h3>
+          <p class="block-content"></p>
+        </div>
+
+        <div class="result-block alternative-block" id="alternative">
+          <h3 class="block-title">🎯 先做这个，就 10 分钟</h3>
+          <p class="block-content"></p>
+        </div>
+
+        <div class="result-block cta-block" id="action-reminder">
+          <p class="cta-text"></p>
+        </div>
+
+        <button id="new-intercept-btn" class="new-intercept-btn">拦截另一个冲动</button>
+      </div>
+    </main>
+
+    <!-- 底部 -->
+    <footer class="footer">
+      <p>冲动会过去。你比它强大。</p>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
