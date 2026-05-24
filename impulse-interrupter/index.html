@@ -16,6 +16,12 @@
       </div>
       <h1 class="tagline">先别急着放纵，撑过这 10 分钟。</h1>
       <p class="subtitle">每次冲动都是一次选择。这一次，选冷静。</p>
+      <div class="stats-bar">
+        <div class="stat-item">
+          <span class="stat-number" id="success-count">0</span>
+          <span class="stat-label">次成功拦截</span>
+        </div>
+      </div>
     </header>
 
     <!-- 输入区 -->
@@ -61,6 +67,59 @@
         <span class="btn-arrow">→</span>
       </button>
 
+      <!-- 倒计时 -->
+      <div id="countdown-section" class="countdown-section standby">
+        <div class="countdown-circle">
+          <svg class="countdown-svg" viewBox="0 0 120 120">
+            <circle class="countdown-track" cx="60" cy="60" r="52" />
+            <circle class="countdown-progress" id="countdown-progress" cx="60" cy="60" r="52" />
+          </svg>
+          <div class="countdown-center">
+            <span class="countdown-time" id="countdown-time">10:00</span>
+            <span class="countdown-subtext">剩余</span>
+          </div>
+        </div>
+        <p class="countdown-message">输入冲动内容，点击「拦截冲动」开始 10 分钟倒计时。</p>
+        <div class="countdown-actions">
+          <button id="countdown-done-btn" class="countdown-done-btn hidden">✓ 我做到了</button>
+          <button id="countdown-giveup-btn" class="countdown-giveup-btn hidden">我没忍住...</button>
+        </div>
+      </div>
+
+      <!-- 复盘表单 -->
+      <div id="review-section" class="review-section hidden">
+        <h3 class="review-title">📝 失败复盘</h3>
+        <p class="review-intro">没关系，这不是失败，是一次数据。让我们看看刚才发生了什么。</p>
+
+        <div class="review-question">
+          <label class="review-label">1. 刚才的冲动是什么？</label>
+          <input type="text" id="review-impulse" class="review-input" readonly />
+        </div>
+
+        <div class="review-question">
+          <label class="review-label">2. 刚才最主要的诱因是什么？</label>
+          <div class="review-options" id="trigger-options"></div>
+        </div>
+
+        <div class="review-question">
+          <label class="review-label">3. 下次同样情况出现时，你愿意先做哪一个动作？</label>
+          <div class="review-options" id="action-options"></div>
+        </div>
+
+        <button id="review-submit-btn" class="review-submit-btn" disabled>生成复盘</button>
+      </div>
+
+      <!-- 复盘结果卡片 -->
+      <div id="review-result-card" class="review-result-card hidden">
+        <div class="review-result-header">
+          <span class="review-result-icon">📋</span>
+          <span class="review-result-title">复盘结果</span>
+        </div>
+        <p class="review-result-text" id="review-result-text"></p>
+        <div class="review-advice" id="review-advice"></div>
+        <button id="review-dismiss-btn" class="review-dismiss-btn">知道了</button>
+      </div>
+
       <!-- 结果卡片 -->
       <div id="result-card" class="result-card hidden">
         <div class="result-header">
@@ -95,6 +154,14 @@
         <button id="new-intercept-btn" class="new-intercept-btn">拦截另一个冲动</button>
       </div>
     </main>
+
+    <!-- 最近复盘 -->
+    <section class="recent-reviews-section" id="recent-reviews-section">
+      <h3 class="recent-reviews-title">最近复盘</h3>
+      <div id="recent-reviews-list" class="recent-reviews-list">
+        <p class="recent-reviews-empty">暂无复盘记录</p>
+      </div>
+    </section>
 
     <!-- 底部 -->
     <footer class="footer">

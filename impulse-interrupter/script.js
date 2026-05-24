@@ -270,6 +270,347 @@ const DEFAULT_RESPONSES = {
   },
 };
 
+// ---- 倒计时与统计 ----
+const COUNTDOWN_MINUTES = 10;
+const COUNTDOWN_SECONDS = COUNTDOWN_MINUTES * 60;
+const CIRCUMFERENCE = 2 * Math.PI * 52; // r=52 from SVG
+
+let countdownTimer = null;
+let countdownRemaining = COUNTDOWN_SECONDS;
+let countdownEndTime = null;
+let currentImpulseText = '';
+
+const TRIGGER_OPTIONS = ['压力太大', '太无聊', '太累了', '逃避任务', '情绪低落', '习惯性打开'];
+const ACTION_OPTIONS = ['放下手机 10 分钟', '喝水洗脸', '离开当前位置', '打开任务只做 5 分钟', '出门走一圈', '给朋友发消息'];
+
+let selectedTrigger = null;
+let selectedAction = null;
+
+function loadSuccessCount() {
+  try {
+    return parseInt(localStorage.getItem('impulse_success_count') || '0', 10);
+  } catch {
+    return 0;
+  }
+}
+
+function saveSuccessCount(count) {
+  try {
+    localStorage.setItem('impulse_success_count', String(count));
+  } catch { /* noop */ }
+}
+
+function incrementSuccessCount() {
+  const count = loadSuccessCount() + 1;
+  saveSuccessCount(count);
+  const el = document.getElementById('success-count');
+  el.textContent = count;
+  el.classList.remove('pop');
+  void el.offsetWidth;
+  el.classList.add('pop');
+}
+
+function saveCountdownState(endTime) {
+  try {
+    localStorage.setItem('impulse_countdown_end', String(endTime));
+  } catch { /* noop */ }
+}
+
+function clearCountdownState() {
+  try {
+    localStorage.removeItem('impulse_countdown_end');
+  } catch { /* noop */ }
+}
+
+function startCountdown() {
+  console.log('[冲动拦截器] startCountdown 被调用');
+
+  const section = document.getElementById('countdown-section');
+  const progress = document.getElementById('countdown-progress');
+  const doneBtn = document.getElementById('countdown-done-btn');
+  const giveupBtn = document.getElementById('countdown-giveup-btn');
+  const messageEl = document.querySelector('.countdown-message');
+
+  if (!section || !progress || !doneBtn || !giveupBtn || !messageEl) {
+    console.error('[冲动拦截器] 倒计时 DOM 元素缺失');
+    return;
+  }
+
+  // 取消旧定时器
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+  }
+
+  // 隐藏复盘内容（如果有的话）
+  document.getElementById('review-section').classList.add('hidden');
+  document.getElementById('review-result-card').classList.add('hidden');
+
+  // 切换到激活状态
+  section.classList.remove('hidden', 'standby', 'completed');
+  doneBtn.classList.add('hidden');
+  giveupBtn.classList.remove('hidden');
+  messageEl.textContent = '冲动峰值通常只持续几分钟，撑过去就好了。';
+
+  countdownRemaining = COUNTDOWN_SECONDS;
+  countdownEndTime = Date.now() + countdownRemaining * 1000;
+  saveCountdownState(countdownEndTime);
+
+  updateCountdownDisplay();
+
+  countdownTimer = setInterval(() => {
+    const now = Date.now();
+    countdownRemaining = Math.max(0, Math.ceil((countdownEndTime - now) / 1000));
+    updateCountdownDisplay();
+
+    if (countdownRemaining <= 0) {
+      completeCountdown();
+    }
+  }, 250);
+
+  console.log('[冲动拦截器] 倒计时已启动，结束时间:', new Date(countdownEndTime).toLocaleTimeString());
+}
+
+function updateCountdownDisplay() {
+  const mins = Math.floor(countdownRemaining / 60);
+  const secs = countdownRemaining % 60;
+  document.getElementById('countdown-time').textContent =
+    `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+  // fraction: 1 at start → 0 at end (ring empties as time passes)
+  const fraction = countdownRemaining / COUNTDOWN_SECONDS;
+  document.getElementById('countdown-progress').style.strokeDashoffset =
+    CIRCUMFERENCE * (1 - fraction);
+}
+
+function completeCountdown() {
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+  }
+  clearCountdownState();
+
+  const section = document.getElementById('countdown-section');
+  const doneBtn = document.getElementById('countdown-done-btn');
+  const giveupBtn = document.getElementById('countdown-giveup-btn');
+
+  section.classList.add('completed');
+  doneBtn.classList.remove('hidden');
+  giveupBtn.classList.add('hidden');
+  document.getElementById('countdown-time').textContent = '00:00';
+  document.getElementById('countdown-progress').style.strokeDashoffset = String(CIRCUMFERENCE);
+  document.querySelector('.countdown-message').textContent =
+    '时间到！你撑过了最难的 10 分钟，冲动已经过去了。';
+
+  incrementSuccessCount();
+}
+
+function cancelCountdown() {
+  // 用户主动放弃 → 显示复盘表单
+  showReviewForm();
+}
+
+function resetCountdownToStandby() {
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+  }
+  clearCountdownState();
+
+  const section = document.getElementById('countdown-section');
+  const doneBtn = document.getElementById('countdown-done-btn');
+  const giveupBtn = document.getElementById('countdown-giveup-btn');
+
+  section.classList.add('standby');
+  section.classList.remove('hidden', 'completed');
+  doneBtn.classList.add('hidden');
+  giveupBtn.classList.add('hidden');
+  countdownRemaining = COUNTDOWN_SECONDS;
+  document.getElementById('countdown-time').textContent = '10:00';
+  document.getElementById('countdown-progress').style.strokeDashoffset = '0';
+  document.querySelector('.countdown-message').textContent =
+    '输入冲动内容，点击「拦截冲动」开始 10 分钟倒计时。';
+}
+
+function resumeCountdown(endTime) {
+  countdownEndTime = endTime;
+  countdownRemaining = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+
+  if (countdownRemaining <= 0) {
+    clearCountdownState();
+    completeCountdown();
+    return;
+  }
+
+  const section = document.getElementById('countdown-section');
+  const doneBtn = document.getElementById('countdown-done-btn');
+  const giveupBtn = document.getElementById('countdown-giveup-btn');
+
+  section.classList.remove('hidden', 'standby', 'completed');
+  doneBtn.classList.add('hidden');
+  giveupBtn.classList.remove('hidden');
+  updateCountdownDisplay();
+
+  countdownTimer = setInterval(() => {
+    const now = Date.now();
+    countdownRemaining = Math.max(0, Math.ceil((countdownEndTime - now) / 1000));
+    updateCountdownDisplay();
+
+    if (countdownRemaining <= 0) {
+      completeCountdown();
+    }
+  }, 250);
+}
+
+// ---- 复盘功能 ----
+
+function showReviewForm() {
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+  }
+  clearCountdownState();
+
+  const countdownSection = document.getElementById('countdown-section');
+  const reviewSection = document.getElementById('review-section');
+
+  countdownSection.classList.add('hidden');
+  reviewSection.classList.remove('hidden');
+
+  // 预填冲动内容
+  document.getElementById('review-impulse').value = currentImpulseText;
+
+  // 重置选择
+  selectedTrigger = null;
+  selectedAction = null;
+  document.querySelectorAll('#trigger-options .review-option-btn').forEach(b => b.classList.remove('selected'));
+  document.querySelectorAll('#action-options .review-option-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('review-submit-btn').disabled = true;
+
+  reviewSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function renderReviewOptions() {
+  const triggerContainer = document.getElementById('trigger-options');
+  const actionContainer = document.getElementById('action-options');
+
+  triggerContainer.innerHTML = TRIGGER_OPTIONS.map(opt =>
+    `<button class="review-option-btn" data-value="${opt}">${opt}</button>`
+  ).join('');
+
+  actionContainer.innerHTML = ACTION_OPTIONS.map(opt =>
+    `<button class="review-option-btn" data-value="${opt}">${opt}</button>`
+  ).join('');
+
+  // 诱因选择
+  triggerContainer.querySelectorAll('.review-option-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      triggerContainer.querySelectorAll('.review-option-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedTrigger = btn.dataset.value;
+      checkReviewReady();
+    });
+  });
+
+  // 行动选择
+  actionContainer.querySelectorAll('.review-option-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      actionContainer.querySelectorAll('.review-option-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedAction = btn.dataset.value;
+      checkReviewReady();
+    });
+  });
+}
+
+function checkReviewReady() {
+  const submitBtn = document.getElementById('review-submit-btn');
+  submitBtn.disabled = !(selectedTrigger && selectedAction);
+}
+
+function handleReviewSubmit() {
+  const impulse = document.getElementById('review-impulse').value.trim() || currentImpulseText;
+  const trigger = selectedTrigger;
+  const action = selectedAction;
+
+  if (!trigger || !action) return;
+
+  const reviewText = `这次不是失败，是一次识别。
+
+你刚才的冲动是：${impulse}
+主要诱因是：${trigger}
+下次预案是：当我再次${impulse}时，我${action}。`;
+
+  const adviceText = `下次拦截建议：
+不要等冲动变到 90 分才打开这个网站。
+当冲动刚到 40 分时，就来拦截。`;
+
+  document.getElementById('review-result-text').textContent = reviewText;
+  document.getElementById('review-advice').innerHTML = `<p>${adviceText.replace(/\n/g, '<br>')}</p>`;
+
+  // 隐藏表单，显示结果
+  document.getElementById('review-section').classList.add('hidden');
+  document.getElementById('review-result-card').classList.remove('hidden');
+  document.getElementById('review-result-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  // 保存复盘记录
+  saveReview({ impulse, trigger, nextAction: action, time: Date.now() });
+  renderRecentReviews();
+}
+
+function saveReview(entry) {
+  try {
+    const reviews = JSON.parse(localStorage.getItem('impulse_reviews') || '[]');
+    reviews.unshift(entry);
+    if (reviews.length > 50) reviews.length = 50;
+    localStorage.setItem('impulse_reviews', JSON.stringify(reviews));
+  } catch { /* noop */ }
+}
+
+function loadReviews() {
+  try {
+    return JSON.parse(localStorage.getItem('impulse_reviews') || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function renderRecentReviews() {
+  const reviews = loadReviews().slice(0, 3);
+  const list = document.getElementById('recent-reviews-list');
+  const section = document.getElementById('recent-reviews-section');
+
+  if (reviews.length === 0) {
+    list.innerHTML = '<p class="recent-reviews-empty">暂无复盘记录</p>';
+    return;
+  }
+
+  list.innerHTML = reviews.map((r, i) => {
+    const time = new Date(r.time);
+    const timeStr = `${time.getMonth() + 1}/${time.getDate()} ${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`;
+    return `
+      <div class="review-item">
+        <div class="review-item-header">
+          <span class="review-item-index">#${i + 1}</span>
+          <span class="review-item-time">${timeStr}</span>
+        </div>
+        <div class="review-item-body">
+          <span>${escapeHTML(r.impulse)}</span>
+          <span class="review-item-sep">|</span>
+          诱因：<span>${escapeHTML(r.trigger)}</span>
+          <span class="review-item-sep">|</span>
+          下次：<span>${escapeHTML(r.nextAction)}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function escapeHTML(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 // ---- 工具箱函数 ----
 
 /** 检测冲动类别 */
@@ -409,6 +750,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function handleIntercept() {
     const text = input.value.trim();
+    currentImpulseText = text;
+    console.log('[冲动拦截器] handleIntercept 被调用, 输入:', text || '(空)');
 
     if (!text) {
       input.focus();
@@ -429,6 +772,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 模拟短暂延迟，让用户感觉到「正在处理」
     setTimeout(() => {
       const response = generateResponse(text, currentIntensity);
+      startCountdown();
       renderResult(response, text);
     }, 600);
   }
@@ -471,11 +815,63 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function resetForm() {
+    resetCountdownToStandby();
+    // 隐藏复盘相关内容
+    document.getElementById('review-section').classList.add('hidden');
+    document.getElementById('review-result-card').classList.add('hidden');
     resultCard.classList.add('hidden');
     input.value = '';
     charCount.textContent = '0';
+    currentImpulseText = '';
+    selectedTrigger = null;
+    selectedAction = null;
     input.focus();
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // ---- 倒计时按钮 ----
+  document.getElementById('countdown-giveup-btn').addEventListener('click', () => {
+    cancelCountdown();
+  });
+
+  document.getElementById('countdown-done-btn').addEventListener('click', () => {
+    document.getElementById('countdown-section').classList.add('hidden');
+  });
+
+  // ---- 复盘按钮 ----
+  renderReviewOptions();
+
+  document.getElementById('review-submit-btn').addEventListener('click', handleReviewSubmit);
+
+  document.getElementById('review-dismiss-btn').addEventListener('click', () => {
+    document.getElementById('review-result-card').classList.add('hidden');
+    resetCountdownToStandby();
+  });
+
+  // ---- 初始化统计 ----
+  document.getElementById('success-count').textContent = loadSuccessCount();
+  renderRecentReviews();
+
+  // ---- 检查并恢复/清理倒计时状态 ----
+  try {
+    const savedEnd = localStorage.getItem('impulse_countdown_end');
+    console.log('[冲动拦截器] 初始化, 检查保存的倒计时:', savedEnd);
+    if (savedEnd) {
+      const endTime = parseInt(savedEnd, 10);
+      if (Number.isNaN(endTime)) {
+        clearCountdownState();
+      } else if (Date.now() < endTime) {
+        console.log('[冲动拦截器] 恢复倒计时, 剩余:', Math.ceil((endTime - Date.now()) / 1000), '秒');
+        resumeCountdown(endTime);
+      } else {
+        console.log('[冲动拦截器] 倒计时已过期, 自动记录成功');
+        clearCountdownState();
+        incrementSuccessCount();
+      }
+    }
+  } catch (e) {
+    console.error('[冲动拦截器] 恢复倒计时失败:', e);
+    clearCountdownState();
   }
 
   // ---- 本地历史记录 ----
@@ -483,7 +879,6 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const history = JSON.parse(localStorage.getItem('impulse_history') || '[]');
       history.unshift(entry);
-      // 只保留最近50条
       if (history.length > 50) history.length = 50;
       localStorage.setItem('impulse_history', JSON.stringify(history));
     } catch {
