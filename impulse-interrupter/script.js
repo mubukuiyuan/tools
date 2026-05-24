@@ -280,6 +280,28 @@ let countdownRemaining = COUNTDOWN_SECONDS;
 let countdownEndTime = null;
 let currentImpulseText = '';
 
+// ---- 干预任务 ----
+const INTERVENTION_TASKS = [
+  {
+    title: '先让身体冷静下来',
+    content: '放下手机，跟着呼吸节奏做 5 次深呼吸。吸气 4 秒，呼气 6 秒。',
+  },
+  {
+    title: '离开冲动现场',
+    content: '站起来，离开现在的位置，去倒一杯水，或者走到窗边待 30 秒。',
+  },
+  {
+    title: '说出真正原因',
+    content: '问自己：我现在是压力大、无聊、太累，还是在逃避某个任务？',
+  },
+  {
+    title: '做一个最小行动',
+    content: '只做 5 分钟你真正该做的事。不是完成它，只是开始它。',
+  },
+];
+
+let currentTaskIndex = 0;
+
 const TRIGGER_OPTIONS = ['压力太大', '太无聊', '太累了', '逃避任务', '情绪低落', '习惯性打开'];
 const ACTION_OPTIONS = ['放下手机 10 分钟', '喝水洗脸', '离开当前位置', '打开任务只做 5 分钟', '出门走一圈', '给朋友发消息'];
 
@@ -358,6 +380,9 @@ function startCountdown() {
 
   updateCountdownDisplay();
 
+  // 显示任务卡片，从第1步开始
+  showTaskCard();
+
   countdownTimer = setInterval(() => {
     const now = Date.now();
     countdownRemaining = Math.max(0, Math.ceil((countdownEndTime - now) / 1000));
@@ -402,12 +427,86 @@ function completeCountdown() {
   document.querySelector('.countdown-message').textContent =
     '时间到！你撑过了最难的 10 分钟，冲动已经过去了。';
 
+  // 任务卡片完成状态
+  currentTaskIndex = INTERVENTION_TASKS.length;
+  renderTask();
+
   incrementSuccessCount();
 }
 
 function cancelCountdown() {
   // 用户主动放弃 → 显示复盘表单
   showReviewForm();
+}
+
+// ---- 任务卡片 ----
+
+function showTaskCard() {
+  const card = document.getElementById('task-card');
+  card.classList.remove('hidden');
+  currentTaskIndex = 0;
+  renderTask();
+}
+
+function hideTaskCard() {
+  const card = document.getElementById('task-card');
+  card.classList.add('hidden');
+}
+
+function resetTaskCard() {
+  currentTaskIndex = 0;
+  document.getElementById('task-card').classList.add('hidden');
+}
+
+function renderTask() {
+  const task = INTERVENTION_TASKS[currentTaskIndex];
+  const total = INTERVENTION_TASKS.length;
+  const isLast = currentTaskIndex === total - 1;
+  const isDone = currentTaskIndex >= total;
+
+  document.getElementById('task-progress').textContent =
+    isDone ? `全部完成` : `第 ${currentTaskIndex + 1} 步 / ${total} 步`;
+
+  if (isDone) {
+    document.getElementById('task-title').textContent = '你完成了这次拦截训练';
+    document.getElementById('task-content').textContent = '冲动已经明显减弱，你比刚才更有掌控力了。继续撑住！';
+    document.getElementById('breathing-guide').classList.add('hidden');
+    const btn = document.getElementById('task-next-btn');
+    btn.textContent = '任务完成，继续撑住';
+    btn.classList.add('completed');
+    return;
+  }
+
+  document.getElementById('task-title').textContent = task.title;
+  document.getElementById('task-content').textContent = task.content;
+
+  // 呼吸引导只在第1步显示
+  const breathingGuide = document.getElementById('breathing-guide');
+  if (currentTaskIndex === 0) {
+    breathingGuide.classList.remove('hidden');
+  } else {
+    breathingGuide.classList.add('hidden');
+  }
+
+  const btn = document.getElementById('task-next-btn');
+  btn.textContent = isLast ? '我完成了，最后一步' : '我完成了，下一步';
+  btn.classList.remove('completed');
+  btn.style.pointerEvents = '';
+}
+
+function handleTaskNext() {
+  if (currentTaskIndex >= INTERVENTION_TASKS.length) {
+    return; // 已完成，不处理
+  }
+
+  currentTaskIndex++;
+
+  if (currentTaskIndex >= INTERVENTION_TASKS.length) {
+    // 全部完成，显示完成状态
+    renderTask();
+  } else {
+    renderTask();
+  }
 }
 
 function resetCountdownToStandby() {
@@ -430,6 +529,8 @@ function resetCountdownToStandby() {
   document.getElementById('countdown-progress').style.strokeDashoffset = '0';
   document.querySelector('.countdown-message').textContent =
     '输入冲动内容，点击「拦截冲动」开始 10 分钟倒计时。';
+
+  hideTaskCard();
 }
 
 function resumeCountdown(endTime) {
@@ -450,6 +551,9 @@ function resumeCountdown(endTime) {
   doneBtn.classList.add('hidden');
   giveupBtn.classList.remove('hidden');
   updateCountdownDisplay();
+
+  // 恢复倒计时时显示任务卡片，从第1步重新开始
+  showTaskCard();
 
   countdownTimer = setInterval(() => {
     const now = Date.now();
@@ -476,6 +580,9 @@ function showReviewForm() {
 
   countdownSection.classList.add('hidden');
   reviewSection.classList.remove('hidden');
+
+  // 用户进入复盘，隐藏任务卡片
+  hideTaskCard();
 
   // 预填冲动内容
   document.getElementById('review-impulse').value = currentImpulseText;
@@ -837,6 +944,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('countdown-done-btn').addEventListener('click', () => {
     document.getElementById('countdown-section').classList.add('hidden');
   });
+
+  // 任务卡片按钮
+  document.getElementById('task-next-btn').addEventListener('click', handleTaskNext);
 
   // ---- 复盘按钮 ----
   renderReviewOptions();
